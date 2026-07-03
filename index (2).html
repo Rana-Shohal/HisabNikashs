@@ -1,0 +1,444 @@
+<!DOCTYPE html>
+<html lang="bn">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#1B2A41">
+<title>লেনদেন খাতা</title>
+<link rel="manifest" href="./manifest.json">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Tiro+Bangla&family=Hind+Siliguri:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --paper:#F7F1E1;
+    --paper-line:#E4D9BC;
+    --ink:#1B2A41;
+    --ink-soft:#4B5B72;
+    --teal:#2F6F62;
+    --rust:#B5482D;
+    --gold:#C9A227;
+    --card:#FFFDF6;
+  }
+  *{box-sizing:border-box;}
+  body{
+    margin:0;
+    font-family:'Hind Siliguri', sans-serif;
+    background:
+      repeating-linear-gradient(var(--paper) 0 31px, var(--paper-line) 31px 32px),
+      var(--paper);
+    color:var(--ink);
+    min-height:100vh;
+    padding-bottom:40px;
+  }
+  header{
+    padding:28px 20px 18px;
+    text-align:center;
+    border-bottom:3px double var(--ink);
+    background:var(--paper);
+  }
+  header h1{
+    font-family:'Tiro Bangla', serif;
+    font-size:1.9rem;
+    margin:0 0 4px;
+    letter-spacing:.5px;
+  }
+  header p{margin:0;color:var(--ink-soft);font-size:.85rem;}
+  #status-bar{
+    max-width:520px;margin:14px auto 0;padding:0 16px;
+    display:flex;justify-content:center;gap:10px;font-size:.8rem;
+  }
+  .pill{
+    padding:4px 12px;border-radius:20px;font-weight:600;
+    border:1px solid var(--ink);
+  }
+  .pill.online{background:var(--teal);color:#fff;border-color:var(--teal);}
+  .pill.offline{background:var(--rust);color:#fff;border-color:var(--rust);}
+  .pill.pending{background:var(--gold);color:var(--ink);border-color:var(--gold);}
+
+  main{max-width:520px;margin:20px auto;padding:0 16px;}
+
+  .card{
+    background:var(--card);
+    border:1px solid var(--paper-line);
+    border-radius:10px;
+    box-shadow:0 2px 10px rgba(27,42,65,.08);
+    padding:20px;
+    margin-bottom:18px;
+  }
+  .card h2{
+    font-family:'Tiro Bangla', serif;
+    font-size:1.1rem;
+    margin:0 0 16px;
+    color:var(--ink);
+    border-left:4px solid var(--gold);
+    padding-left:10px;
+  }
+  label{display:block;font-size:.85rem;font-weight:600;margin:14px 0 6px;color:var(--ink-soft);}
+  select, input[type=text], input[type=tel], input[type=number], textarea{
+    width:100%;padding:11px 12px;border:1.5px solid var(--paper-line);
+    border-radius:7px;font-size:1rem;font-family:inherit;background:#fff;color:var(--ink);
+  }
+  select:focus, input:focus, textarea:focus{outline:2px solid var(--teal);border-color:var(--teal);}
+  .row2{display:grid;grid-template-columns:1fr 1fr;gap:12px;}
+  .hint{font-size:.75rem;color:var(--ink-soft);margin-top:4px;}
+  .hint.found{color:var(--teal);font-weight:600;}
+  .req::after{content:' *';color:var(--rust);}
+
+  .sms-box{
+    margin-top:16px;padding:12px;background:#FBF6E8;border:1px dashed var(--gold);
+    border-radius:7px;display:flex;align-items:flex-start;gap:10px;
+  }
+  .sms-box input{width:auto;margin-top:3px;}
+  .sms-box label{margin:0;font-weight:500;color:var(--ink);}
+
+  button.submit{
+    width:100%;margin-top:20px;padding:14px;border:none;border-radius:8px;
+    background:var(--ink);color:#fff;font-size:1.05rem;font-weight:700;
+    font-family:'Hind Siliguri',sans-serif;cursor:pointer;
+  }
+  button.submit:active{transform:scale(.99);}
+
+  .entries h2{margin-bottom:10px;}
+  .entry{
+    display:flex;justify-content:space-between;align-items:center;
+    padding:10px 0;border-bottom:1px solid var(--paper-line);gap:10px;
+  }
+  .entry:last-child{border-bottom:none;}
+  .entry .meta{font-size:.78rem;color:var(--ink-soft);}
+  .entry .cat{font-weight:600;}
+  .entry .amt.take{color:var(--teal);font-weight:700;}
+  .entry .amt.give{color:var(--rust);font-weight:700;}
+  .badge{font-size:.7rem;padding:2px 8px;border-radius:10px;white-space:nowrap;}
+  .badge.synced{background:#E4F1EC;color:var(--teal);}
+  .badge.pending{background:#FBEFE0;color:#8a6d1f;}
+  .empty{color:var(--ink-soft);font-size:.85rem;text-align:center;padding:14px 0;}
+
+  #toast{
+    position:fixed;bottom:18px;left:50%;transform:translateX(-50%);
+    background:var(--ink);color:#fff;padding:10px 18px;border-radius:8px;
+    font-size:.85rem;opacity:0;pointer-events:none;transition:opacity .25s;z-index:50;
+  }
+  #toast.show{opacity:1;}
+</style>
+</head>
+<body>
+
+<header>
+  <h1>লেনদেন খাতা</h1>
+  <p>অফলাইন-ফার্স্ট হিসাব এন্ট্রি — নেট পেলে অটো সিঙ্ক হবে</p>
+  <div id="status-bar">
+    <span id="netPill" class="pill offline">অফলাইন</span>
+    <span id="pendingPill" class="pill pending" style="display:none;">0 পেন্ডিং</span>
+  </div>
+</header>
+
+<main>
+  <form class="card" id="entryForm">
+    <h2>নতুন এন্ট্রি</h2>
+
+    <label class="req">ক্যাটাগরি</label>
+    <select id="category" required></select>
+
+    <label id="phoneLabel">ফোন নম্বর</label>
+    <input type="tel" id="phone" placeholder="01XXXXXXXXX" inputmode="numeric">
+    <div class="hint" id="phoneHint"></div>
+
+    <label class="req" id="nameLabel">নাম</label>
+    <input type="text" id="name" required placeholder="নাম লিখুন">
+
+    <div class="row2">
+      <div>
+        <label>Take Amount (নেওয়া)</label>
+        <input type="number" id="takeAmount" min="0" placeholder="৳ 0">
+      </div>
+      <div>
+        <label>Give Amount (দেওয়া)</label>
+        <input type="number" id="giveAmount" min="0" placeholder="৳ 0">
+      </div>
+    </div>
+
+    <label>কারণ / বিবরণ</label>
+    <textarea id="reason" rows="2" placeholder="সংক্ষেপে লিখুন"></textarea>
+
+    <div class="sms-box" id="smsBox" style="display:none;">
+      <input type="checkbox" id="sendSms">
+      <label for="sendSms">সাবমিটের পর SMS App খুলে মেসেজ পাঠানোর সুযোগ দাও (ট্যাপ করে Send করতে হবে)</label>
+    </div>
+
+    <button type="submit" class="submit">সংরক্ষণ করুন</button>
+  </form>
+
+  <div class="card entries">
+    <h2>সাম্প্রতিক এন্ট্রি</h2>
+    <div id="entryList"></div>
+  </div>
+</main>
+
+<div id="toast"></div>
+
+<script>
+/* ================== কনফিগ ================== */
+// এখানে আপনার Deploy করা Apps Script Web App URL বসান
+const APPS_SCRIPT_URL = 'PASTE_YOUR_APPS_SCRIPT_WEB_APP_URL_HERE';
+const SENDER_NAME = 'সোহেল রানা';
+
+const CATEGORIES = [
+  ['Food','খাবার'], ['Gifts','উপহার'], ['Health/Medical','স্বাস্থ্য/চিকিৎসা'],
+  ['Transportation','যাতায়াত'], ['Personal','ব্যক্তিগত'],
+  ['Giving Loan','ঋণ দেওয়া'], ['Taking Loan','ঋণ নেওয়া'],
+  ['Loan Repaid','ঋণ ফেরত পাওয়া'], ['Loan Paid','ঋণ পরিশোধ'],
+  ['Credit Purchase','বাকিতে ক্রয়'], ['Credit Purchase Loan Paid','বাকি পরিশোধ'],
+  ['Net & Electricity Bill','নেট ও বিদ্যুৎ বিল'], ['Travel','ভ্রমণ'],
+  ['Donate','দান'], ['Savings','সঞ্চয়'], ['Other','অন্যান্য']
+];
+const PHONE_REQUIRED = ['Giving Loan','Loan Paid','Taking Loan','Loan Repaid','Credit Purchase','Credit Purchase Loan Paid'];
+const SMS_ALLOWED = PHONE_REQUIRED; // একই লিস্ট
+
+const SMS_TEMPLATES = {
+  'Taking Loan': (name, amt) => `ধন্যবাদ, ${name}।\nআপনাকে জানানো যাচ্ছে যে, ${SENDER_NAME} আপনার কাছ থেকে ${amt} টাকা ঋণ গ্রহণ করেছেন।\nইনশাআল্লাহ নির্ধারিত সময়ের মধ্যে আপনি সম্পূর্ণ টাকা ফেরত পাবেন।\nআপনার সহযোগিতার জন্য আন্তরিক ধন্যবাদ।`,
+  'Loan Paid': (name, amt) => `ধন্যবাদ, ${name}।\nআপনাকে জানানো যাচ্ছে যে, ${SENDER_NAME} আপনার কাছ থেকে নেওয়া ${amt} টাকা ঋণ পরিশোধ করেছেন।\nইনশাআল্লাহ ভবিষ্যতেও আপনার সাথে এই সুন্দর সম্পর্ক বজায় থাকবে।\nআপনার সহযোগিতা ও বিশ্বাসের জন্য আন্তরিক ধন্যবাদ।`,
+  'Giving Loan': (name, amt) => `ধন্যবাদ, ${name}।\nআপনাকে জানানো যাচ্ছে যে, আপনি ${SENDER_NAME} এর কাছ থেকে ${amt} টাকা নিয়েছেন।\nইনশাআল্লাহ আমাদের লেনদেন সুষ্ঠ এবং সুন্দর হবে।\nআপনার সহযোগিতা ও বিশ্বাসের জন্য আন্তরিক ধন্যবাদ।`,
+  'Loan Repaid': (name, amt) => `ধন্যবাদ, ${name}।\nআপনাকে জানানো যাচ্ছে যে, আপনি ${SENDER_NAME} এর কাছ থেকে নেওয়া ${amt} টাকা পরিশোধ করেছেন।\nইনশাআল্লাহ আমাদের লেনদেন সুষ্ঠ এবং সুন্দর হবে।\nআপনার সহযোগিতা ও বিশ্বাসের জন্য আন্তরিক ধন্যবাদ।`,
+  'Credit Purchase': (name, amt) => `ধন্যবাদ, ${name}।\nআপনাকে জানানো যাচ্ছে যে, ${SENDER_NAME} আপনার কাছ থেকে বাকিতে ক্রয় করেছেন, যার মোট মূল্য ${amt} টাকা।\nইনশাআল্লাহ নির্ধারিত সময়ের মধ্যে সম্পূর্ণ টাকা পরিশোধ করা হবে।\nআপনার সহযোগিতা ও বিশ্বাসের জন্য আন্তরিক ধন্যবাদ।`,
+  'Credit Purchase Loan Paid': (name, amt) => `ধন্যবাদ, ${name}।\nআপনাকে জানানো যাচ্ছে যে, ${SENDER_NAME} আপনার কাছ থেকে বাকিতে ক্রয় করা পণ্যের জন্য বকেয়া ${amt} টাকা পরিশোধ করেছেন।\nইনশাআল্লাহ ভবিষ্যতেও আমাদের এই সুন্দর লেনদেন সম্পর্ক বজায় থাকবে।\nআপনার সহযোগিতা ও বিশ্বাসের জন্য আন্তরিক ধন্যবাদ।`
+};
+
+/* ================== IndexedDB ================== */
+let db;
+function openDB(){
+  return new Promise((resolve, reject) => {
+    const req = indexedDB.open('ledgerDB', 1);
+    req.onupgradeneeded = () => {
+      const d = req.result;
+      if(!d.objectStoreNames.contains('entries')){
+        const store = d.createObjectStore('entries', {keyPath:'id', autoIncrement:true});
+        store.createIndex('synced', 'synced');
+      }
+    };
+    req.onsuccess = () => { db = req.result; resolve(db); };
+    req.onerror = () => reject(req.error);
+  });
+}
+function txStore(mode='readonly'){
+  return db.transaction('entries', mode).objectStore('entries');
+}
+function addEntry(entry){
+  return new Promise((res, rej) => {
+    const r = txStore('readwrite').add(entry);
+    r.onsuccess = () => res(r.result);
+    r.onerror = () => rej(r.error);
+  });
+}
+function getAllEntries(){
+  return new Promise((res, rej) => {
+    const r = txStore().getAll();
+    r.onsuccess = () => res(r.result.reverse());
+    r.onerror = () => rej(r.error);
+  });
+}
+function markSynced(id){
+  return new Promise((res, rej) => {
+    const store = txStore('readwrite');
+    const g = store.get(id);
+    g.onsuccess = () => {
+      const val = g.result;
+      if(!val) return res();
+      val.synced = true;
+      const p = store.put(val);
+      p.onsuccess = () => res();
+      p.onerror = () => rej(p.error);
+    };
+    g.onerror = () => rej(g.error);
+  });
+}
+
+/* ================== UI Init ================== */
+const $ = (id) => document.getElementById(id);
+const categorySel = $('category');
+CATEGORIES.forEach(([val, label]) => {
+  const o = document.createElement('option');
+  o.value = val; o.textContent = `${label} (${val})`;
+  categorySel.appendChild(o);
+});
+
+function updateCategoryUI(){
+  const cat = categorySel.value;
+  const needsPhone = PHONE_REQUIRED.includes(cat);
+  $('phone').required = needsPhone;
+  $('phoneLabel').className = needsPhone ? 'req' : '';
+  $('smsBox').style.display = SMS_ALLOWED.includes(cat) ? 'flex' : 'none';
+  if(!SMS_ALLOWED.includes(cat)) $('sendSms').checked = false;
+}
+categorySel.addEventListener('change', updateCategoryUI);
+updateCategoryUI();
+
+/* ফোন নম্বর দিয়ে Name অটো-ফিল */
+let phoneTimer;
+$('phone').addEventListener('input', () => {
+  clearTimeout(phoneTimer);
+  const phone = $('phone').value.trim();
+  $('phoneHint').textContent = '';
+  $('phoneHint').className = 'hint';
+  if(phone.length < 6 || !navigator.onLine || APPS_SCRIPT_URL.includes('PASTE_')) return;
+  phoneTimer = setTimeout(async () => {
+    try{
+      $('phoneHint').textContent = 'চেক করা হচ্ছে...';
+      const res = await fetch(`${APPS_SCRIPT_URL}?action=checkPhone&phone=${encodeURIComponent(phone)}`);
+      const data = await res.json();
+      if(data.found){
+        $('name').value = data.name;
+        $('phoneHint').textContent = `✓ পূর্ব পরিচিত নাম্বার: ${data.name}`;
+        $('phoneHint').className = 'hint found';
+      } else {
+        $('phoneHint').textContent = 'নতুন নম্বর — নাম লিখুন';
+      }
+    }catch(err){
+      $('phoneHint').textContent = '';
+    }
+  }, 500);
+});
+
+/* ================== Submit ================== */
+$('entryForm').addEventListener('submit', async (e) => {
+  e.preventDefault();
+  const cat = categorySel.value;
+  const name = $('name').value.trim();
+  const phone = $('phone').value.trim();
+  const takeAmount = $('takeAmount').value || '';
+  const giveAmount = $('giveAmount').value || '';
+  const reason = $('reason').value.trim();
+  const wantSms = $('sendSms').checked;
+
+  if(PHONE_REQUIRED.includes(cat) && !phone){
+    toast('এই ক্যাটাগরিতে ফোন নম্বর আবশ্যক');
+    return;
+  }
+
+  const entry = {
+    dateTime: new Date().toISOString(),
+    category: cat, name, phone, takeAmount, giveAmount, reason,
+    synced: false
+  };
+  const id = await addEntry(entry);
+  await renderEntries();
+  toast('সংরক্ষণ হয়েছে ✓');
+
+  const smsUrl = (wantSms && SMS_ALLOWED.includes(cat) && phone)
+    ? buildSmsLink(cat, name, phone, takeAmount, giveAmount) : null;
+
+  $('entryForm').reset();
+  updateCategoryUI();
+
+  if(navigator.onLine) syncAll();
+
+  // SMS App খোলা (ইউজারকে ট্যাপ করে Send করতে হবে)
+  if(smsUrl) setTimeout(() => { window.location.href = smsUrl; }, 300);
+});
+
+function buildSmsLink(cat, name, phone, takeAmount, giveAmount){
+  const amt = takeAmount || giveAmount || '0';
+  const template = SMS_TEMPLATES[cat];
+  if(!template) return null;
+  const msg = template(name, amt);
+  return `sms:${phone}?body=${encodeURIComponent(msg)}`;
+}
+
+/* ================== Sync ================== */
+async function syncAll(){
+  const all = await getAllEntries();
+  const pending = all.filter(x => !x.synced);
+  updatePendingPill(pending.length);
+  if(APPS_SCRIPT_URL.includes('PASTE_')) return; // এখনো কনফিগার করা হয়নি
+
+  for(const entry of pending){
+    try{
+      const res = await fetch(APPS_SCRIPT_URL, {
+        method: 'POST',
+        headers: {'Content-Type': 'text/plain;charset=utf-8'}, // preflight এড়াতে
+        body: JSON.stringify({ action: 'submitForm', ...entry })
+      });
+      const data = await res.json();
+      if(data && data.success){
+        await markSynced(entry.id);
+      }
+    }catch(err){
+      break; // নেট সমস্যা হলে থামিয়ে দাও, পরে আবার চেষ্টা হবে
+    }
+  }
+  await renderEntries();
+}
+
+/* ================== রেন্ডার ================== */
+async function renderEntries(){
+  const all = await getAllEntries();
+  const pending = all.filter(x => !x.synced).length;
+  updatePendingPill(pending);
+
+  const list = $('entryList');
+  if(all.length === 0){
+    list.innerHTML = '<div class="empty">এখনো কোনো এন্ট্রি নেই</div>';
+    return;
+  }
+  list.innerHTML = all.slice(0, 30).map(e => {
+    const amt = e.takeAmount ? `<span class="amt take">+৳${e.takeAmount}</span>` :
+                e.giveAmount ? `<span class="amt give">-৳${e.giveAmount}</span>` : '';
+    const dt = new Date(e.dateTime);
+    const dtStr = dt.toLocaleDateString('bn-BD') + ' ' + dt.toLocaleTimeString('bn-BD', {hour:'2-digit', minute:'2-digit'});
+    return `<div class="entry">
+      <div>
+        <div class="cat">${e.category}${e.name ? ' — ' + e.name : ''}</div>
+        <div class="meta">${dtStr}</div>
+      </div>
+      <div style="text-align:right;">
+        ${amt}<br>
+        <span class="badge ${e.synced ? 'synced' : 'pending'}">${e.synced ? '✓ সিঙ্কড' : '⏳ পেন্ডিং'}</span>
+      </div>
+    </div>`;
+  }).join('');
+}
+
+/* ================== স্ট্যাটাস বার ================== */
+function updateNetPill(){
+  const pill = $('netPill');
+  if(navigator.onLine){
+    pill.textContent = 'অনলাইন'; pill.className = 'pill online';
+  } else {
+    pill.textContent = 'অফলাইন'; pill.className = 'pill offline';
+  }
+}
+function updatePendingPill(count){
+  const pill = $('pendingPill');
+  if(count > 0){
+    pill.style.display = 'inline-block';
+    pill.textContent = `${count} পেন্ডিং`;
+  } else {
+    pill.style.display = 'none';
+  }
+}
+window.addEventListener('online', () => { updateNetPill(); syncAll(); });
+window.addEventListener('offline', updateNetPill);
+
+let toastTimer;
+function toast(msg){
+  const t = $('toast');
+  t.textContent = msg;
+  t.classList.add('show');
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => t.classList.remove('show'), 2200);
+}
+
+/* ================== Init ================== */
+(async function init(){
+  await openDB();
+  updateNetPill();
+  await renderEntries();
+  if(navigator.onLine) syncAll();
+  setInterval(() => { if(navigator.onLine) syncAll(); }, 30000);
+
+  if('serviceWorker' in navigator){
+    try{ await navigator.serviceWorker.register('./service-worker.js'); }catch(e){}
+  }
+})();
+</script>
+</body>
+</html>
