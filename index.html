@@ -54,6 +54,7 @@
   .pill.online{background:var(--teal);color:#fff;border-color:var(--teal);}
   .pill.offline{background:var(--rust);color:#fff;border-color:var(--rust);}
   .pill.pending{background:var(--gold);color:var(--ink);border-color:var(--gold);}
+  button.pill.refresh{background:transparent;color:var(--ink);font-family:inherit;font-size:.8rem;cursor:pointer;}
 
   main{max-width:520px;margin:20px auto;padding:0 16px;}
 
@@ -170,6 +171,7 @@
   <div id="status-bar">
     <span id="netPill" class="pill offline">অফলাইন</span>
     <span id="pendingPill" class="pill pending" style="display:none;">0 পেন্ডিং</span>
+    <button type="button" id="refreshBtn" class="pill refresh">↻ রিফ্রেশ</button>
   </div>
   <div id="balanceBar">ক্লোজিং ব্যালেন্স: <b id="balanceVal">৳ ০</b></div>
 </header>
@@ -301,7 +303,7 @@ function addEntry(entry){
 function getAllEntries(){
   return new Promise((res, rej) => {
     const r = txStore().getAll();
-    r.onsuccess = () => res(r.result.reverse());
+    r.onsuccess = () => res(r.result.sort((a, b) => (Date.parse(b.dateTime) || 0) - (Date.parse(a.dateTime) || 0)));
     r.onerror = () => rej(r.error);
   });
 }
@@ -318,6 +320,32 @@ function markSynced(id){
       p.onerror = () => rej(p.error);
     };
     g.onerror = () => rej(g.error);
+  });
+}
+
+// Sheet থেকে আনা তালিকা দিয়ে সিঙ্কড এন্ট্রি বদলে ফেলে (পেন্ডিং এন্ট্রি অক্ষত থাকে)
+function replaceSynced(rows){
+  return new Promise((res, rej) => {
+    const tx = db.transaction('entries', 'readwrite');
+    const store = tx.objectStore('entries');
+    const req = store.getAll();
+    req.onsuccess = () => {
+      req.result.forEach(e => { if(e.synced) store.delete(e.id); });
+      rows.forEach(r => store.add({
+        dateTime: r.dateTime || new Date(0).toISOString(),
+        category: r.category || '',
+        name: r.name || '',
+        phone: r.phone || '',
+        takeAmount: r.takeAmount === '' || r.takeAmount == null ? '' : String(r.takeAmount),
+        giveAmount: r.giveAmount === '' || r.giveAmount == null ? '' : String(r.giveAmount),
+        reason: r.reason || '',
+        synced: true,
+        fromSheet: true
+      }));
+    };
+    tx.oncomplete = () => res();
+    tx.onerror = () => rej(tx.error);
+    tx.onabort = () => rej(tx.error);
   });
 }
 
@@ -414,7 +442,37 @@ function buildSmsLink(cat, name, phone, takeAmount, giveAmount){
 }
 
 /* ================== Sync ================== */
-async function syncAll(){
+// syncAll ও pull একসাথে না চলার জন্য সিরিয়াল লক
+let lockChain = Promise.resolve();
+function withLock(fn){
+  const p = lockChain.then(fn, fn);
+  lockChain = p.catch(() => {});
+  return p;
+}
+function syncAll(){ return withLock(_syncAll); }
+function pullFromSheet(){ return withLock(_pullFromSheet); }
+async function syncAndPull(){
+  await syncAll();
+  await pullFromSheet();
+}
+
+let lastPull = 0;
+async function _pullFromSheet(){
+  if(!navigator.onLine || APPS_SCRIPT_URL.includes('PASTE_')) return false;
+  try{
+    const res = await fetch(`${APPS_SCRIPT_URL}?action=getEntries`);
+    const data = await res.json();
+    if(!data || !data.success || !Array.isArray(data.entries)) return false;
+    await replaceSynced(data.entries);
+    lastPull = Date.now();
+    await renderEntries();
+    return true;
+  }catch(err){
+    return false;
+  }
+}
+
+async function _syncAll(){
   const all = await getAllEntries();
   const pending = all.filter(x => !x.synced);
   updatePendingPill(pending.length);
@@ -757,7 +815,17 @@ function updatePendingPill(count){
     pill.style.display = 'none';
   }
 }
-window.addEventListener('online', () => { updateNetPill(); syncAll(); });
+window.addEventListener('online', () => { updateNetPill(); syncAndPull(); });
+document.addEventListener('visibilitychange', () => {
+  if(document.visibilityState === 'visible' && navigator.onLine && Date.now() - lastPull > 60000) syncAndPull();
+});
+$('refreshBtn').addEventListener('click', async () => {
+  if(!navigator.onLine){ toast('ইন্টারনেট নেই'); return; }
+  toast('আপডেট হচ্ছে…');
+  await syncAll();
+  const ok = await pullFromSheet();
+  toast(ok ? 'Sheet থেকে আপডেট হয়েছে ✓' : 'আপডেট করা যায়নি, পরে চেষ্টা করুন');
+});
 window.addEventListener('offline', updateNetPill);
 
 let toastTimer;
@@ -774,7 +842,7 @@ function toast(msg){
   await openDB();
   updateNetPill();
   await renderEntries();
-  if(navigator.onLine) syncAll();
+  if(navigator.onLine) syncAndPull();
   setInterval(() => { if(navigator.onLine) syncAll(); }, 30000);
 
   if('serviceWorker' in navigator){
