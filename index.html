@@ -245,6 +245,8 @@
 // এখানে আপনার Deploy করা Apps Script Web App URL বসান
 const APPS_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbyZnIeZvuDSMK1JLPseCacLXDv7cpsm4pfjBsElm9SwBecj0oipx8O3aHS1PeA_FQvZ/exec';
 const SENDER_NAME = 'সোহেল রানা';
+// Sheet-এর 'My Inventory' শিটের G2 ঘরের শুরুর ব্যালেন্স (ক্লোজিং ব্যালেন্সে যোগ হয়)
+const OPENING_BALANCE = 680;
 
 const CATEGORIES = [
   ['Food','খাবার'], ['Gifts','উপহার'], ['Health/Medical','স্বাস্থ্য/চিকিৎসা'],
@@ -502,7 +504,7 @@ const bn = (n) => Number(n).toLocaleString('bn-BD');
 const fromDate = $('fromDate'), toDate = $('toDate');
 
 function updateBalance(all){
-  let bal = 0;
+  let bal = OPENING_BALANCE;
   all.forEach(e => { bal += (Number(e.takeAmount) || 0) - (Number(e.giveAmount) || 0); });
   const el = $('balanceVal');
   el.textContent = (bal < 0 ? '-' : '') + '৳ ' + bn(Math.abs(bal));
