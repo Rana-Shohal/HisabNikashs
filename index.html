@@ -260,11 +260,8 @@ const CATEGORIES = [
 const PHONE_REQUIRED = ['Giving Loan','Loan Paid','Taking Loan','Loan Repaid','Credit Purchase','Credit Purchase Loan Paid'];
 const SMS_ALLOWED = PHONE_REQUIRED; // একই লিস্ট
 
-// নামের ড্রপডাউনে কাদের দেখাবে:
-// 'iOwe'    = যাদের কাছে আমি ঋণী (তারা আমার কাছে টাকা পাবে)
-// 'theyOwe' = যারা আমার কাছে ঋণী
-// দুটোতেই "আমার কাছে যারা টাকা পাবে" চাইলে 'Loan Repaid' এর মান 'iOwe' করে দিন।
-const PERSON_PICK = { 'Loan Paid': 'iOwe', 'Loan Repaid': 'theyOwe' };
+// এই ক্যাটাগরিগুলোতে নামের ঘর ড্রপডাউন হয়ে যাবে, আগে যাদের সাথে লেনদেন হয়েছে তাদের নাম+ফোন সেখানে থাকবে
+const PERSON_PICK_CATEGORIES = ['Loan Repaid', 'Loan Paid', 'Credit Purchase Loan Paid'];
 let entriesCache = [];
 
 const SMS_TEMPLATES = {
@@ -398,6 +395,11 @@ $('phone').addEventListener('input', () => {
   }, 500);
 });
 
+function makeUid(){
+  if(window.crypto && crypto.randomUUID) return crypto.randomUUID();
+  return 'u' + Date.now() + '-' + Math.random().toString(16).slice(2);
+}
+
 /* ================== Submit ================== */
 $('entryForm').addEventListener('submit', async (e) => {
   e.preventDefault();
@@ -417,7 +419,8 @@ $('entryForm').addEventListener('submit', async (e) => {
   const entry = {
     dateTime: new Date().toISOString(),
     category: cat, name, phone, takeAmount, giveAmount, reason,
-    synced: false
+    synced: false,
+    uid: makeUid() // Sheet-এ একই এন্ট্রি একাধিকবার বসা ঠেকাতে
   };
   const id = await addEntry(entry);
   await renderEntries();
@@ -485,7 +488,7 @@ async function _syncAll(){
       const res = await fetch(APPS_SCRIPT_URL, {
         method: 'POST',
         headers: {'Content-Type': 'text/plain;charset=utf-8'}, // preflight এড়াতে
-        body: JSON.stringify({ action: 'submitForm', ...entry })
+        body: JSON.stringify({ action: 'submitForm', ...entry, clientId: entry.uid || '' })
       });
       const data = await res.json();
       if(data && data.success){
@@ -511,26 +514,10 @@ function updateBalance(all){
   el.className = bal < 0 ? 'neg' : '';
 }
 
-function computePeople(all, mode){
-  const plus  = mode === 'iOwe' ? 'Taking Loan' : 'Giving Loan';
-  const minus = mode === 'iOwe' ? 'Loan Paid'   : 'Loan Repaid';
-  const map = {};
-  all.slice().reverse().forEach(e => { // পুরনো থেকে নতুন
-    if(e.category !== plus && e.category !== minus) return;
-    const key = e.phone || e.name;
-    if(!key) return;
-    const p = map[key] || (map[key] = {name: e.name, phone: e.phone || '', bal: 0});
-    if(e.name) p.name = e.name;
-    if(e.phone) p.phone = e.phone;
-    p.bal += (e.category === plus ? 1 : -1) * amtOf(e);
-  });
-  return Object.values(map).filter(p => p.bal > 0).sort((a, b) => b.bal - a.bal);
-}
-
 function applyNameMode(){
-  const mode = PERSON_PICK[categorySel.value];
+  const active = PERSON_PICK_CATEGORIES.includes(categorySel.value);
   const sel = $('nameSelect'), input = $('name');
-  if(!mode){
+  if(!active){
     sel.style.display = 'none'; sel.required = false;
     input.style.display = ''; input.required = true;
     return;
@@ -542,27 +529,25 @@ function applyNameMode(){
 }
 
 function refreshNameSelect(){
-  const mode = PERSON_PICK[categorySel.value];
+  const active = PERSON_PICK_CATEGORIES.includes(categorySel.value);
   const sel = $('nameSelect');
-  if(!mode){
+  if(!active){
     $('nameHint').textContent = '';
     applyNameMode();
     return;
   }
-  const people = computePeople(entriesCache, mode);
+  const people = knownPeople().slice().sort((a, b) => a.name.localeCompare(b.name, 'bn'));
   const prev = sel.value;
   sel.innerHTML = '';
-  sel.add(new Option(people.length ? '— নাম বাছাই করুন —' : 'কোনো বকেয়া নেই', ''));
+  sel.add(new Option(people.length ? '— নাম বাছাই করুন —' : 'এখনো কারো সাথে লেনদেন নেই', ''));
   people.forEach(p => {
-    const o = new Option(`${p.name} — ৳${bn(p.bal)}`, p.name);
+    const o = new Option(p.phone ? `${p.name} — ${p.phone}` : p.name, p.name);
     o.dataset.phone = p.phone;
     sel.add(o);
   });
   sel.add(new Option('✎ অন্য নাম লিখুন', '__other__'));
   if([...sel.options].some(o => o.value === prev)) sel.value = prev;
-  $('nameHint').textContent = mode === 'iOwe'
-    ? 'যাদের কাছে আপনি ঋণী (তারা আপনার কাছে টাকা পাবে)'
-    : 'যারা আপনার কাছে ঋণী';
+  $('nameHint').textContent = 'আগে যাদের সাথে লেনদেন হয়েছে তাদের তালিকা';
   $('nameHint').className = 'hint';
   applyNameMode();
 }
@@ -575,14 +560,14 @@ $('nameSelect').addEventListener('change', () => {
 });
 
 function getNameValue(){
-  if(PERSON_PICK[categorySel.value] && $('nameSelect').value !== '__other__'){
+  if(PERSON_PICK_CATEGORIES.includes(categorySel.value) && $('nameSelect').value !== '__other__'){
     return $('nameSelect').value;
   }
   return $('name').value.trim();
 }
 
 function setNameValue(name, phone){
-  if(PERSON_PICK[categorySel.value]){
+  if(PERSON_PICK_CATEGORIES.includes(categorySel.value)){
     const sel = $('nameSelect');
     const opt = [...sel.options].find(o => o.value === name);
     if(opt){
@@ -755,7 +740,7 @@ function applyVoiceEntry(text){
   $('giveAmount').value = (field === 'give' && amount) ? amount : '';
   $('reason').value = text;
   if(person) setNameValue(person.name, person.phone);
-  else { $('phone').value = ''; if(!PERSON_PICK[cat]) $('name').value = ''; }
+  else { $('phone').value = ''; if(!PERSON_PICK_CATEGORIES.includes(cat)) $('name').value = ''; }
 
   $('entryForm').scrollIntoView({behavior: 'smooth', block: 'start'});
   toast('ভয়েস থেকে ফর্ম পূরণ হয়েছে — যাচাই করে সংরক্ষণ করুন');
