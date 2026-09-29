@@ -1,4 +1,4 @@
-const CACHE = 'lenden-khata-v4';
+const CACHE = 'lenden-khata-v5';
 const ASSETS = ['./', './index.html', './manifest.json'];
 
 self.addEventListener('install', (e) => {
