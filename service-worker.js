@@ -1,5 +1,5 @@
-const CACHE = 'lenden-khata-v5';
-const ASSETS = ['./', './index.html', './manifest.json'];
+const CACHE = 'lenden-khata-v6';
+const ASSETS = ['./', './index.html', './people.html', './manifest.json'];
 
 self.addEventListener('install', (e) => {
   self.skipWaiting();
@@ -20,7 +20,7 @@ self.addEventListener('fetch', (e) => {
   if (e.request.url.includes('script.google.com')) return; // always go to network for API
 
   e.respondWith(
-    caches.match(e.request).then((cached) => {
+    caches.match(e.request, { ignoreSearch: true }).then((cached) => {
       return (
         cached ||
         fetch(e.request)
