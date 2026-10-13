@@ -1,0 +1,382 @@
+<!DOCTYPE html>
+<html lang="bn">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#1B2A41">
+<title>লেনদেন খাতা — হিসাব</title>
+<link rel="manifest" href="./manifest.json">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Tiro+Bangla&family=Hind+Siliguri:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --paper:#F7F1E1; --paper-line:#E4D9BC; --ink:#1B2A41; --ink-soft:#4B5B72;
+    --teal:#2F6F62; --rust:#B5482D; --gold:#C9A227; --card:#FFFDF6;
+    --accent:var(--rust); --accent-soft:#FBEBE5;
+  }
+  body.receivable{ --accent:var(--teal); --accent-soft:#E4F1EC; }
+  *{box-sizing:border-box;}
+  body{
+    margin:0; font-family:'Hind Siliguri',sans-serif; color:var(--ink);
+    background:#F3EEDF; min-height:100vh; padding-bottom:50px;
+  }
+  .topbar{
+    background:var(--ink); color:#fff; padding:14px 16px 0;
+    position:sticky; top:0; z-index:30; box-shadow:0 2px 10px rgba(27,42,65,.25);
+  }
+  .topbar-inner{max-width:560px;margin:0 auto;}
+  .top-row{display:flex;align-items:center;justify-content:space-between;gap:10px;}
+  .back{
+    color:#fff;text-decoration:none;font-size:.85rem;font-weight:600;
+    padding:6px 12px;border:1px solid rgba(255,255,255,.35);border-radius:20px;
+  }
+  .top-row h1{font-family:'Tiro Bangla',serif;font-size:1.2rem;margin:0;font-weight:400;}
+  .iconbtn{
+    background:transparent;border:1px solid rgba(255,255,255,.35);color:#fff;border-radius:20px;
+    padding:6px 12px;font-family:inherit;font-size:.85rem;font-weight:600;cursor:pointer;
+  }
+  .tabs{display:grid;grid-template-columns:1fr 1fr;margin-top:12px;}
+  .tab{
+    text-align:center;text-decoration:none;color:rgba(255,255,255,.7);
+    padding:11px 6px;font-weight:700;font-size:.92rem;border-bottom:3px solid transparent;
+  }
+  .tab.active{color:#fff;border-bottom-color:var(--gold);}
+
+  main{max-width:560px;margin:0 auto;padding:16px;}
+
+  .hero{
+    background:linear-gradient(135deg,var(--ink) 0%,#2c4264 100%);
+    color:#fff;border-radius:14px;padding:20px;margin-bottom:14px;
+    box-shadow:0 6px 18px rgba(27,42,65,.25);
+  }
+  .hero .lbl{font-size:.8rem;opacity:.8;}
+  .hero .big{font-size:2rem;font-weight:700;margin:2px 0 14px;letter-spacing:.3px;}
+  .hero .stats{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;
+    border-top:1px solid rgba(255,255,255,.18);padding-top:12px;}
+  .hero .stat b{display:block;font-size:1rem;}
+  .hero .stat span{font-size:.7rem;opacity:.75;}
+
+  .tools{display:flex;gap:8px;margin-bottom:14px;}
+  .tools input[type=text]{
+    flex:1;padding:11px 14px;border:1.5px solid var(--paper-line);border-radius:10px;
+    font-family:inherit;font-size:.95rem;background:#fff;color:var(--ink);
+  }
+  .tools input:focus{outline:2px solid var(--accent);border-color:var(--accent);}
+
+  .section-title{
+    font-family:'Tiro Bangla',serif;font-size:1rem;margin:18px 2px 10px;
+    border-left:4px solid var(--gold);padding-left:10px;
+    display:flex;justify-content:space-between;align-items:center;
+  }
+  .section-title small{font-family:'Hind Siliguri',sans-serif;color:var(--ink-soft);font-size:.75rem;}
+
+  .person{
+    background:var(--card);border:1px solid var(--paper-line);border-radius:12px;
+    padding:14px;margin-bottom:12px;box-shadow:0 2px 8px rgba(27,42,65,.06);
+    border-top:3px solid var(--accent);
+  }
+  .person.settled{border-top-color:#9aa7b5;opacity:.85;}
+  .p-head{display:flex;gap:12px;align-items:center;}
+  .avatar{
+    width:44px;height:44px;border-radius:50%;background:var(--accent-soft);color:var(--accent);
+    display:flex;align-items:center;justify-content:center;font-weight:700;font-size:1.1rem;flex:none;
+  }
+  .p-info{flex:1;min-width:0;}
+  .p-name{font-weight:700;font-size:1rem;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+  .p-phone{font-size:.78rem;color:var(--ink-soft);}
+  .p-phone a{color:var(--ink-soft);text-decoration:none;}
+  .p-due{text-align:right;flex:none;}
+  .p-due .amt{font-size:1.15rem;font-weight:700;color:var(--accent);}
+  .p-due .tag{font-size:.68rem;color:var(--ink-soft);}
+  .person.settled .p-due .amt{color:var(--ink-soft);}
+
+  .progress{height:7px;background:#ECE4CC;border-radius:6px;margin:12px 0 8px;overflow:hidden;}
+  .progress i{display:block;height:100%;background:var(--accent);border-radius:6px;}
+  .p-stats{display:grid;grid-template-columns:repeat(3,1fr);gap:6px;font-size:.75rem;color:var(--ink-soft);}
+  .p-stats b{display:block;color:var(--ink);font-size:.88rem;}
+  .last-pay{font-size:.74rem;color:var(--ink-soft);margin-top:8px;}
+
+  details{margin-top:10px;border-top:1px dashed var(--paper-line);padding-top:8px;}
+  summary{cursor:pointer;font-weight:700;font-size:.82rem;color:var(--accent);list-style:none;}
+  summary::-webkit-details-marker{display:none;}
+  summary::after{content:' ▾';}
+  details[open] summary::after{content:' ▴';}
+
+  .hist{width:100%;border-collapse:collapse;margin-top:8px;font-size:.78rem;}
+  .hist th{
+    text-align:left;font-weight:600;color:var(--ink-soft);padding:6px 4px;
+    border-bottom:1.5px solid var(--paper-line);font-size:.7rem;
+  }
+  .hist td{padding:7px 4px;border-bottom:1px solid #EFE7D0;vertical-align:top;}
+  .hist td.r,.hist th.r{text-align:right;}
+  .hist .inc{color:var(--ink);font-weight:600;}
+  .hist .pay{color:var(--teal);font-weight:700;}
+  body.receivable .hist .inc{color:var(--rust);}
+  .hist .why{display:block;color:var(--ink-soft);font-size:.7rem;margin-top:2px;}
+  .chip{display:inline-block;font-size:.66rem;padding:1px 7px;border-radius:10px;margin-top:2px;}
+  .chip.inc{background:#F1EBD6;color:#6b5a1b;}
+  .chip.pay{background:#E4F1EC;color:var(--teal);}
+
+  .toggle-settled{
+    width:100%;padding:11px;border:1.5px dashed var(--paper-line);background:transparent;
+    border-radius:10px;font-family:inherit;font-weight:600;color:var(--ink-soft);cursor:pointer;margin:4px 0 12px;
+  }
+  .empty{color:var(--ink-soft);text-align:center;padding:30px 10px;font-size:.9rem;}
+  .note{font-size:.72rem;color:var(--ink-soft);text-align:center;margin-top:18px;}
+
+  @media print{
+    .topbar .iconbtn,.topbar .back,.tools,.toggle-settled,.note{display:none!important;}
+    .topbar{position:static;box-shadow:none;}
+    details{display:block;} details>summary{display:none;}
+    body{background:#fff;}
+  }
+</style>
+</head>
+<body>
+
+<div class="topbar">
+  <div class="topbar-inner">
+    <div class="top-row">
+      <a class="back" href="./index.html">← হোম</a>
+      <h1 id="pageTitle">Need to Paid</h1>
+      <button class="iconbtn" id="printBtn" type="button">🖨 প্রিন্ট</button>
+    </div>
+    <div class="tabs">
+      <a class="tab" id="tabPayable" href="./people.html?type=payable">💸 Need to Paid</a>
+      <a class="tab" id="tabReceivable" href="./people.html?type=receivable">📥 Need to Receive</a>
+    </div>
+  </div>
+</div>
+
+<main>
+  <div class="hero">
+    <div class="lbl" id="heroLbl">মোট বকেয়া</div>
+    <div class="big" id="heroTotal">৳ ০</div>
+    <div class="stats">
+      <div class="stat"><b id="stPeople">০</b><span id="stPeopleLbl">জন বাকি</span></div>
+      <div class="stat"><b id="stTotal">৳ ০</b><span id="stTotalLbl">মোট নেওয়া</span></div>
+      <div class="stat"><b id="stPaid">৳ ০</b><span id="stPaidLbl">মোট পরিশোধ</span></div>
+    </div>
+  </div>
+
+  <div class="tools">
+    <input type="text" id="search" placeholder="নাম বা ফোন দিয়ে খুঁজুন…">
+  </div>
+
+  <div class="section-title"><span id="activeTitle">বকেয়া তালিকা</span><small id="activeCount"></small></div>
+  <div id="activeList"></div>
+
+  <button type="button" class="toggle-settled" id="toggleSettled" style="display:none;"></button>
+  <div id="settledList" style="display:none;"></div>
+
+  <div class="note">ডেটা মূল পেজের লেনদেন থেকে স্বয়ংক্রিয়ভাবে হিসাব করা হয়</div>
+</main>
+
+<script>
+const $ = (id) => document.getElementById(id);
+const bn = (n) => Number(n).toLocaleString('bn-BD');
+const esc = (s) => String(s == null ? '' : s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const amtOf = (e) => Number(e.takeAmount || e.giveAmount || 0) || 0;
+const fmtDate = (iso) => {
+  const d = new Date(iso);
+  if(isNaN(d)) return '—';
+  return d.toLocaleDateString('bn-BD', {day:'numeric', month:'short', year:'numeric'});
+};
+
+const TYPE = new URLSearchParams(location.search).get('type') === 'receivable' ? 'receivable' : 'payable';
+
+/* payable   : আমি নিয়েছি/বাকিতে কিনেছি (বাড়ে) → আমি পরিশোধ করেছি (কমে)
+   receivable: আমি ধার দিয়েছি (বাড়ে)          → সে ফেরত দিয়েছে (কমে) */
+const CFG = {
+  payable: {
+    title: 'Need to Paid',
+    heroLbl: 'আমাকে মোট যা পরিশোধ করতে হবে',
+    peopleLbl: 'জনকে দিতে হবে',
+    totalLbl: 'মোট নেওয়া/বাকি',
+    paidLbl: 'মোট পরিশোধ করেছি',
+    activeTitle: 'যাদের টাকা দিতে হবে',
+    dueTag: 'বাকি আছে',
+    incStat: 'নেওয়া/বাকি', payStat: 'পরিশোধ',
+    payTitle: 'পরিশোধের ইতিহাস',
+    lastPayLbl: 'সর্বশেষ পরিশোধ',
+    emptyMsg: 'কাউকে টাকা দেওয়ার বাকি নেই 🎉',
+    inc: { 'Taking Loan':'ঋণ নেওয়া', 'Credit Purchase':'বাকিতে ক্রয়' },
+    pay: { 'Loan Paid':'ঋণ পরিশোধ', 'Credit Purchase Loan Paid':'বাকি পরিশোধ' }
+  },
+  receivable: {
+    title: 'Need to Receive',
+    heroLbl: 'আমি মোট যা পাব',
+    peopleLbl: 'জনের কাছে পাব',
+    totalLbl: 'মোট দেওয়া',
+    paidLbl: 'মোট ফেরত পেয়েছি',
+    activeTitle: 'যাদের কাছে টাকা পাব',
+    dueTag: 'পাওনা আছে',
+    incStat: 'ধার দেওয়া', payStat: 'ফেরত পেয়েছি',
+    payTitle: 'ফেরত পাওয়ার ইতিহাস',
+    lastPayLbl: 'সর্বশেষ ফেরত পেয়েছি',
+    emptyMsg: 'কারো কাছে পাওনা নেই',
+    inc: { 'Giving Loan':'ঋণ দেওয়া' },
+    pay: { 'Loan Repaid':'ঋণ ফেরত পাওয়া' }
+  }
+}[TYPE];
+
+document.body.classList.add(TYPE);
+document.title = 'লেনদেন খাতা — ' + CFG.title;
+$('pageTitle').textContent = CFG.title;
+$(TYPE === 'payable' ? 'tabPayable' : 'tabReceivable').classList.add('active');
+$('heroLbl').textContent = CFG.heroLbl;
+$('stPeopleLbl').textContent = CFG.peopleLbl;
+$('stTotalLbl').textContent = CFG.totalLbl;
+$('stPaidLbl').textContent = CFG.paidLbl;
+$('activeTitle').textContent = CFG.activeTitle;
+
+/* ---------- IndexedDB (মূল পেজের মতোই একই ডেটাবেস) ---------- */
+function openDB(){
+  return new Promise((resolve, reject) => {
+    const req = indexedDB.open('ledgerDB', 1);
+    req.onupgradeneeded = () => {
+      const d = req.result;
+      if(!d.objectStoreNames.contains('entries')){
+        const store = d.createObjectStore('entries', {keyPath:'id', autoIncrement:true});
+        store.createIndex('synced', 'synced');
+      }
+    };
+    req.onsuccess = () => resolve(req.result);
+    req.onerror = () => reject(req.error);
+  });
+}
+function getAll(db){
+  return new Promise((res, rej) => {
+    const r = db.transaction('entries').objectStore('entries').getAll();
+    r.onsuccess = () => res(r.result);
+    r.onerror = () => rej(r.error);
+  });
+}
+
+/* ---------- হিসাব ---------- */
+function buildPeople(entries){
+  const map = new Map();
+  entries.forEach(e => {
+    const isInc = Object.prototype.hasOwnProperty.call(CFG.inc, e.category);
+    const isPay = Object.prototype.hasOwnProperty.call(CFG.pay, e.category);
+    if(!isInc && !isPay) return;
+    const name = (e.name || '').trim() || 'নাম নেই';
+    let p = map.get(name);
+    if(!p) map.set(name, p = {name, phone:'', total:0, paid:0, items:[]});
+    const amt = amtOf(e);
+    if(isInc) p.total += amt; else p.paid += amt;
+    if(e.phone) p.phone = e.phone;
+    p.items.push({
+      t: Date.parse(e.dateTime) || 0, dateTime: e.dateTime,
+      kind: isInc ? 'inc' : 'pay',
+      label: (isInc ? CFG.inc : CFG.pay)[e.category],
+      amt, reason: e.reason || ''
+    });
+  });
+  const list = [...map.values()];
+  list.forEach(p => {
+    p.items.sort((a, b) => a.t - b.t);
+    let run = 0;
+    p.items.forEach(i => { run += i.kind === 'inc' ? i.amt : -i.amt; i.run = run; });
+    p.due = p.total - p.paid;
+    const pays = p.items.filter(i => i.kind === 'pay');
+    p.lastPay = pays.length ? pays[pays.length - 1] : null;
+  });
+  return list;
+}
+
+function personCard(p){
+  const settled = p.due <= 0;
+  const pct = p.total > 0 ? Math.min(100, Math.round(p.paid / p.total * 100)) : 0;
+  const phone = p.phone ? `<a href="tel:${esc(p.phone)}">📞 ${esc(p.phone)}</a>` : 'ফোন নম্বর নেই';
+  const dueTxt = settled
+    ? (p.due < 0 ? `+৳ ${bn(Math.abs(p.due))}` : '৳ ০')
+    : '৳ ' + bn(p.due);
+  const dueTag = settled ? (p.due < 0 ? 'অতিরিক্ত পরিশোধ' : 'নিষ্পত্তি ✓') : CFG.dueTag;
+
+  const rows = p.items.slice().reverse().map(i => `
+    <tr>
+      <td>${esc(fmtDate(i.dateTime))}<span class="chip ${i.kind}">${esc(i.label)}</span></td>
+      <td class="r ${i.kind}">${i.kind === 'pay' ? '−' : '+'}৳${bn(i.amt)}${i.reason ? `<span class="why">${esc(i.reason)}</span>` : ''}</td>
+      <td class="r">৳${bn(Math.max(i.run, 0))}</td>
+    </tr>`).join('');
+
+  const payCount = p.items.filter(i => i.kind === 'pay').length;
+
+  return `<div class="person ${settled ? 'settled' : ''}">
+    <div class="p-head">
+      <div class="avatar">${esc(p.name.trim().charAt(0).toUpperCase())}</div>
+      <div class="p-info">
+        <div class="p-name">${esc(p.name)}</div>
+        <div class="p-phone">${phone}</div>
+      </div>
+      <div class="p-due"><div class="amt">${dueTxt}</div><div class="tag">${dueTag}</div></div>
+    </div>
+    <div class="progress"><i style="width:${pct}%"></i></div>
+    <div class="p-stats">
+      <div><b>৳ ${bn(p.total)}</b>${CFG.incStat}</div>
+      <div><b>৳ ${bn(p.paid)}</b>${CFG.payStat}</div>
+      <div><b>${bn(pct)}%</b>সম্পন্ন</div>
+    </div>
+    ${p.lastPay ? `<div class="last-pay">${CFG.lastPayLbl}: ${esc(fmtDate(p.lastPay.dateTime))} — ৳ ${bn(p.lastPay.amt)}</div>` : ''}
+    <details>
+      <summary>বিস্তারিত লেনদেন (${bn(p.items.length)}টি) · ${CFG.payTitle} ${bn(payCount)}বার</summary>
+      <table class="hist">
+        <thead><tr><th>তারিখ</th><th class="r">পরিমাণ</th><th class="r">অবশিষ্ট</th></tr></thead>
+        <tbody>${rows}</tbody>
+      </table>
+    </details>
+  </div>`;
+}
+
+let PEOPLE = [];
+let showSettled = false;
+
+function render(){
+  const q = $('search').value.trim().toLowerCase();
+  const match = (p) => !q || p.name.toLowerCase().includes(q) || (p.phone || '').includes(q);
+
+  const active = PEOPLE.filter(p => p.due > 0).sort((a, b) => b.due - a.due);
+  const settled = PEOPLE.filter(p => p.due <= 0).sort((a, b) => (b.lastPay ? b.lastPay.t : 0) - (a.lastPay ? a.lastPay.t : 0));
+
+  // হিরো সামারি (সার্চ নিরপেক্ষ)
+  const totalDue = active.reduce((s, p) => s + p.due, 0);
+  $('heroTotal').textContent = '৳ ' + bn(totalDue);
+  $('stPeople').textContent = bn(active.length);
+  $('stTotal').textContent = '৳ ' + bn(PEOPLE.reduce((s, p) => s + p.total, 0));
+  $('stPaid').textContent = '৳ ' + bn(PEOPLE.reduce((s, p) => s + p.paid, 0));
+
+  const a = active.filter(match), s = settled.filter(match);
+  $('activeCount').textContent = a.length ? `${bn(a.length)} জন` : '';
+  $('activeList').innerHTML = a.length ? a.map(personCard).join('')
+    : `<div class="empty">${q ? 'কোনো ফলাফল পাওয়া যায়নি' : CFG.emptyMsg}</div>`;
+
+  const tg = $('toggleSettled');
+  if(s.length){
+    tg.style.display = '';
+    tg.textContent = (showSettled ? '▴ নিষ্পত্তি হওয়াগুলো লুকান' : '▾ নিষ্পত্তি হওয়াগুলো দেখুন') + ` (${bn(s.length)})`;
+  } else tg.style.display = 'none';
+  $('settledList').style.display = showSettled && s.length ? '' : 'none';
+  $('settledList').innerHTML = s.map(personCard).join('');
+}
+
+$('search').addEventListener('input', render);
+$('toggleSettled').addEventListener('click', () => { showSettled = !showSettled; render(); });
+$('printBtn').addEventListener('click', () => {
+  document.querySelectorAll('details').forEach(d => d.open = true);
+  window.print();
+});
+
+(async function init(){
+  try{
+    const db = await openDB();
+    PEOPLE = buildPeople(await getAll(db));
+  }catch(e){ PEOPLE = []; }
+  render();
+  if('serviceWorker' in navigator){
+    try{ await navigator.serviceWorker.register('./service-worker.js'); }catch(e){}
+  }
+})();
+</script>
+</body>
+</html>

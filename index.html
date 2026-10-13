@@ -82,6 +82,33 @@
   #balanceBar b{font-size:1.15rem;color:var(--teal);}
   #balanceBar b.neg{color:var(--rust);}
 
+  /* গড় খরচ */
+  #avgBar{
+    max-width:520px;margin:10px auto 0;padding:10px 14px;
+    background:var(--card);border:1px solid var(--paper-line);border-left:4px solid var(--rust);
+    border-radius:8px;text-align:left;
+    display:flex;justify-content:space-between;align-items:center;gap:10px;
+  }
+  #avgBar .avg-title{font-size:.8rem;color:var(--ink-soft);font-weight:600;}
+  #avgBar .avg-sub{font-size:.72rem;color:var(--ink-soft);margin-top:2px;}
+  #avgBar .avg-val{font-size:1.2rem;font-weight:700;color:var(--rust);white-space:nowrap;}
+  #avgBar .avg-val small{font-size:.72rem;font-weight:500;color:var(--ink-soft);}
+
+  /* নেভিগেশন বাটন */
+  .nav-links{
+    max-width:520px;margin:12px auto 0;
+    display:grid;grid-template-columns:1fr 1fr;gap:10px;
+  }
+  .navbtn{
+    display:block;text-decoration:none;text-align:center;
+    padding:11px 8px;border-radius:8px;font-weight:700;font-size:.9rem;
+    font-family:inherit;color:#fff;border:none;
+    box-shadow:0 2px 6px rgba(27,42,65,.18);
+  }
+  .navbtn.pay{background:var(--rust);}
+  .navbtn.recv{background:var(--teal);}
+  .navbtn:active{transform:scale(.98);}
+
   .filter-box{
     margin:0 0 12px;padding:10px 12px;background:#FBF6E8;
     border:1px dashed var(--gold);border-radius:8px;
@@ -174,6 +201,19 @@
     <button type="button" id="refreshBtn" class="pill refresh">↻ রিফ্রেশ</button>
   </div>
   <div id="balanceBar">ক্লোজিং ব্যালেন্স: <b id="balanceVal">৳ ০</b></div>
+
+  <div id="avgBar">
+    <div>
+      <div class="avg-title">গড় খরচ (গত ৩০ দিন)</div>
+      <div class="avg-sub" id="avgSub">মোট খরচ ৳ ০ ÷ ৩০ দিন</div>
+    </div>
+    <div class="avg-val"><span id="avgVal">৳ ০</span> <small>/ দিন</small></div>
+  </div>
+
+  <div class="nav-links">
+    <a class="navbtn pay" href="./people.html?type=payable">💸 Need to Paid</a>
+    <a class="navbtn recv" href="./people.html?type=receivable">📥 Need to Receive</a>
+  </div>
 </header>
 
 <main>
@@ -262,6 +302,9 @@ const SMS_ALLOWED = PHONE_REQUIRED; // একই লিস্ট
 
 // এই ক্যাটাগরিগুলোতে নামের ঘর ড্রপডাউন হয়ে যাবে, আগে যাদের সাথে লেনদেন হয়েছে তাদের নাম+ফোন সেখানে থাকবে
 const PERSON_PICK_CATEGORIES = ['Loan Repaid', 'Loan Paid', 'Credit Purchase Loan Paid'];
+// গড় খরচ হিসাবে যে ক্যাটাগরিগুলোর Give Amount ধরা হবে (ঋণ/বাকি/সঞ্চয় বাদ)
+const EXPENSE_CATEGORIES = ['Food','Gifts','Health/Medical','Transportation','Personal','Net & Electricity Bill','Travel','Donate','Other'];
+const AVG_DAYS = 30;
 let entriesCache = [];
 
 const SMS_TEMPLATES = {
@@ -514,6 +557,20 @@ function updateBalance(all){
   el.className = bal < 0 ? 'neg' : '';
 }
 
+// গত ৩০ দিনের গড় দৈনিক খরচ
+function updateAverage(all){
+  const cutoff = Date.now() - AVG_DAYS * 24 * 60 * 60 * 1000;
+  let total = 0;
+  all.forEach(e => {
+    if(!EXPENSE_CATEGORIES.includes(e.category)) return;
+    const t = Date.parse(e.dateTime);
+    if(!t || t < cutoff) return;
+    total += Number(e.giveAmount) || 0;
+  });
+  $('avgVal').textContent = '৳ ' + bn(Math.round(total / AVG_DAYS));
+  $('avgSub').textContent = `মোট খরচ ৳ ${bn(total)} ÷ ${bn(AVG_DAYS)} দিন`;
+}
+
 function applyNameMode(){
   const active = PERSON_PICK_CATEGORIES.includes(categorySel.value);
   const sel = $('nameSelect'), input = $('name');
@@ -601,6 +658,7 @@ async function renderEntries(){
   entriesCache = all;
   updatePendingPill(all.filter(x => !x.synced).length);
   updateBalance(all);
+  updateAverage(all);
   refreshNameSelect();
 
   let from = fromDate.value, to = toDate.value;
