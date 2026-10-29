@@ -1,0 +1,204 @@
+<!DOCTYPE html>
+<html lang="bn">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#1B2A41">
+<title>লেনদেন খাতা — Recent Records</title>
+<link rel="manifest" href="./manifest.json">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Tiro+Bangla&family=Hind+Siliguri:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="./common.css">
+<style>
+  :root{
+    --paper:#F7F1E1; --paper-line:#E4D9BC; --ink:#1B2A41; --ink-soft:#4B5B72;
+    --teal:#2F6F62; --rust:#B5482D; --gold:#C9A227; --card:#FFFDF6;
+  }
+  *{box-sizing:border-box;}
+  body{margin:0;font-family:'Hind Siliguri',sans-serif;color:var(--ink);background:#F3EEDF;min-height:100vh;padding-bottom:60px;}
+  .topbar{
+    background:var(--ink);color:#fff;padding:calc(12px + env(safe-area-inset-top,0px)) 16px 12px;
+    position:sticky;top:0;z-index:30;box-shadow:0 2px 10px rgba(27,42,65,.25);
+  }
+  .topbar .menu-btn{color:#fff;border-color:rgba(255,255,255,.35);}
+  .topbar-inner{max-width:640px;margin:0 auto;display:flex;align-items:center;gap:12px;}
+  .topbar h1{font-family:'Tiro Bangla',serif;font-size:1.2rem;margin:0;font-weight:400;}
+  main{max-width:640px;margin:0 auto;padding:16px;}
+  .card{background:var(--card);border:1px solid var(--paper-line);border-radius:12px;padding:14px;margin-bottom:14px;box-shadow:0 2px 8px rgba(27,42,65,.06);}
+  .card h2{font-family:'Tiro Bangla',serif;font-size:1rem;margin:0 0 12px;border-left:4px solid var(--gold);padding-left:10px;}
+  .chips{display:flex;gap:8px;flex-wrap:wrap;}
+  .chip-btn{
+    min-height:42px;padding:0 15px;border-radius:21px;border:1.5px solid var(--paper-line);
+    background:#fff;color:var(--ink-soft);font-family:inherit;font-weight:600;font-size:.88rem;cursor:pointer;
+  }
+  .chip-btn.on{background:var(--ink);color:#fff;border-color:var(--ink);}
+  #customBox{display:none;margin-top:12px;padding:12px;background:#FBF6E8;border:1px dashed var(--gold);border-radius:10px;}
+  #customBox.show{display:block;}
+  .row2{display:grid;grid-template-columns:1fr 1fr;gap:10px;}
+  label{display:block;font-size:.78rem;font-weight:600;color:var(--ink-soft);margin:0 0 4px;}
+  input[type=text],input[type=date]{
+    width:100%;min-height:46px;padding:8px 12px;border:1.5px solid var(--paper-line);border-radius:10px;
+    font-size:1rem;font-family:inherit;background:#fff;color:var(--ink);
+  }
+  input:focus{outline:2px solid var(--teal);border-color:var(--teal);}
+  #applyBtn{
+    width:100%;margin-top:10px;min-height:46px;border:none;border-radius:10px;background:var(--ink);color:#fff;
+    font-family:inherit;font-weight:700;font-size:.95rem;cursor:pointer;
+  }
+  #search{margin-top:12px;}
+  .summary{font-size:.8rem;color:var(--ink-soft);margin:2px 2px 10px;}
+  .day{font-family:'Tiro Bangla',serif;font-size:.9rem;margin:14px 2px 6px;color:var(--ink-soft);}
+  .entry{
+    display:flex;justify-content:space-between;align-items:flex-start;gap:10px;
+    background:var(--card);border:1px solid var(--paper-line);border-radius:10px;padding:11px 12px;margin-bottom:8px;
+  }
+  .entry .cat{font-weight:700;font-size:.92rem;}
+  .entry .nm{font-size:.85rem;margin-top:1px;}
+  .entry .meta{font-size:.74rem;color:var(--ink-soft);margin-top:2px;}
+  .entry .why{font-size:.76rem;color:var(--ink-soft);margin-top:3px;}
+  .entry .r{text-align:right;flex:none;}
+  .amt.take{color:var(--teal);font-weight:700;}
+  .amt.give{color:var(--rust);font-weight:700;}
+  .badge{display:inline-block;font-size:.66rem;padding:2px 8px;border-radius:10px;margin-top:4px;}
+  .badge.synced{background:#E4F1EC;color:var(--teal);}
+  .badge.pending{background:#FBEFE0;color:#8a6d1f;}
+  .empty{color:var(--ink-soft);text-align:center;padding:28px 10px;font-size:.9rem;}
+  #moreBtn{
+    display:none;width:100%;min-height:46px;margin:6px 0;border:1.5px dashed var(--paper-line);background:transparent;
+    border-radius:10px;font-family:inherit;font-weight:600;color:var(--ink-soft);cursor:pointer;
+  }
+</style>
+</head>
+<body>
+<div class="topbar">
+  <div class="topbar-inner">
+    <button type="button" class="menu-btn" id="menuBtn" aria-label="মেনু">☰</button>
+    <h1>📁 Recent Records</h1>
+  </div>
+</div>
+
+<main>
+  <div class="card" id="filter">
+    <h2>Date Filter</h2>
+    <div class="chips" id="chips">
+      <button type="button" class="chip-btn on" data-k="all">সব</button>
+      <button type="button" class="chip-btn" data-k="today">আজ</button>
+      <button type="button" class="chip-btn" data-k="yesterday">গতকাল</button>
+      <button type="button" class="chip-btn" data-k="week">এই সপ্তাহ</button>
+      <button type="button" class="chip-btn" data-k="month">এই মাস</button>
+      <button type="button" class="chip-btn" data-k="custom">Custom Date</button>
+    </div>
+    <div id="customBox">
+      <div class="row2">
+        <div><label for="fromDate">From Date</label><input type="date" id="fromDate"></div>
+        <div><label for="toDate">To Date</label><input type="date" id="toDate"></div>
+      </div>
+      <button type="button" id="applyBtn">Apply</button>
+    </div>
+    <input type="text" id="search" placeholder="🔍 নাম, ফোন, ক্যাটাগরি বা বিবরণ দিয়ে খুঁজুন…" autocomplete="off">
+  </div>
+
+  <div id="history">
+    <div class="summary" id="summary"></div>
+    <div id="list"></div>
+    <button type="button" id="moreBtn">আরও দেখুন</button>
+  </div>
+</main>
+
+<script src="./common.js"></script>
+<script>
+const $ = (id) => document.getElementById(id);
+const { bn, esc, ymd, CAT_BN, CFG } = LDK;
+const PAGE = 100;
+let ALL = [], KEY = 'all', FROM = '', TO = '', shown = PAGE;
+
+function rangeOf(k){
+  const now = new Date(), today = ymd(now);
+  if(k === 'today') return [today, today];
+  if(k === 'yesterday'){ const d = new Date(now); d.setDate(d.getDate() - 1); const y = ymd(d); return [y, y]; }
+  if(k === 'week'){ const d = new Date(now); d.setDate(d.getDate() - ((d.getDay() - CFG.WEEK_START + 7) % 7)); return [ymd(d), today]; }
+  if(k === 'month') return [ymd(new Date(now.getFullYear(), now.getMonth(), 1)), today];
+  if(k === 'custom') return [FROM, TO];
+  return ['', ''];
+}
+
+function render(){
+  document.querySelectorAll('#chips .chip-btn').forEach(b => b.classList.toggle('on', b.dataset.k === KEY));
+  $('customBox').classList.toggle('show', KEY === 'custom');
+
+  let [from, to] = rangeOf(KEY);
+  if(from && to && from > to){ const t = from; from = to; to = t; }
+  const q = $('search').value.trim().toLowerCase();
+
+  const rows = ALL.filter(e => {
+    const d = ymd(e.dateTime);
+    if((from && d < from) || (to && d > to)) return false;
+    if(!q) return true;
+    return [e.name, e.phone, e.category, CAT_BN[e.category], e.reason].some(v => (v || '').toLowerCase().includes(q));
+  });
+
+  const tk = rows.reduce((s, e) => s + (Number(e.takeAmount) || 0), 0);
+  const gv = rows.reduce((s, e) => s + (Number(e.giveAmount) || 0), 0);
+  $('summary').textContent = `${bn(rows.length)}টি এন্ট্রি | নেওয়া ৳${bn(tk)} | দেওয়া ৳${bn(gv)}`;
+
+  if(!ALL.length){ $('list').innerHTML = '<div class="empty">এখনো কোনো এন্ট্রি নেই</div>'; $('moreBtn').style.display = 'none'; return; }
+  if(!rows.length){ $('list').innerHTML = '<div class="empty">এই সময়ে কোনো এন্ট্রি নেই</div>'; $('moreBtn').style.display = 'none'; return; }
+
+  const vis = rows.slice(0, shown);
+  let html = '', lastDay = '';
+  vis.forEach(e => {
+    const dt = new Date(e.dateTime);
+    const day = dt.toLocaleDateString('bn-BD', {weekday:'long', day:'numeric', month:'long', year:'numeric'});
+    if(day !== lastDay){ html += `<div class="day">${esc(day)}</div>`; lastDay = day; }
+    const amt = e.takeAmount ? `<span class="amt take">+৳${bn(e.takeAmount)}</span>` :
+                e.giveAmount ? `<span class="amt give">-৳${bn(e.giveAmount)}</span>` : '';
+    html += `<div class="entry">
+      <div>
+        <div class="cat">${esc(CAT_BN[e.category] || e.category)} <span style="font-weight:400;color:var(--ink-soft);font-size:.75rem;">(${esc(e.category)})</span></div>
+        ${e.name ? `<div class="nm">${esc(e.name)}${e.phone ? ' · ' + esc(e.phone) : ''}</div>` : ''}
+        <div class="meta">${esc(dt.toLocaleTimeString('bn-BD', {hour:'2-digit', minute:'2-digit'}))}</div>
+        ${e.reason ? `<div class="why">${esc(e.reason)}</div>` : ''}
+      </div>
+      <div class="r">${amt}<br><span class="badge ${e.synced ? 'synced' : 'pending'}">${e.synced ? '✓ সিঙ্কড' : '⏳ পেন্ডিং'}</span></div>
+    </div>`;
+  });
+  $('list').innerHTML = html;
+  $('moreBtn').style.display = rows.length > shown ? 'block' : 'none';
+  $('moreBtn').textContent = `আরও দেখুন (${bn(rows.length - shown)}টি বাকি)`;
+}
+
+async function load(){ ALL = await LDK.getAllEntries(); render(); }
+
+$('chips').addEventListener('click', (e) => {
+  const b = e.target.closest('[data-k]'); if(!b) return;
+  KEY = b.dataset.k; shown = PAGE; render();
+});
+$('applyBtn').addEventListener('click', () => {
+  FROM = $('fromDate').value; TO = $('toDate').value;
+  if(!FROM && !TO){ LDK.toast('কমপক্ষে একটি তারিখ দিন'); return; }
+  shown = PAGE; render();
+});
+$('search').addEventListener('input', () => { shown = PAGE; render(); });
+$('moreBtn').addEventListener('click', () => { shown += PAGE; render(); });
+
+function goHash(){
+  const h = location.hash;
+  if(h === '#search'){ $('search').scrollIntoView({block:'center'}); $('search').focus(); }
+  else if(h === '#filter') $('filter').scrollIntoView({block:'start'});
+  else if(h === '#history') $('history').scrollIntoView({block:'start'});
+}
+window.addEventListener('hashchange', goHash);
+
+(async function init(){
+  await LDK.boot();
+  LDK.onChange = load;
+  await load();
+  goHash();
+  LDK.startAutoSync();
+  if('serviceWorker' in navigator){
+    try{ await navigator.serviceWorker.register('./service-worker.js'); }catch(e){}
+  }
+})();
+</script>
+</body>
+</html>

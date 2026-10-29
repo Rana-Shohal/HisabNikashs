@@ -1,0 +1,136 @@
+<!DOCTYPE html>
+<html lang="bn">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#1B2A41">
+<title>লেনদেন খাতা — Settings</title>
+<link rel="manifest" href="./manifest.json">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Tiro+Bangla&family=Hind+Siliguri:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="./common.css">
+<style>
+  :root{--paper-line:#E4D9BC;--ink:#1B2A41;--ink-soft:#4B5B72;--teal:#2F6F62;--rust:#B5482D;--gold:#C9A227;--card:#FFFDF6;}
+  *{box-sizing:border-box;}
+  body{margin:0;font-family:'Hind Siliguri',sans-serif;color:var(--ink);background:#F3EEDF;min-height:100vh;padding-bottom:60px;}
+  .topbar{background:var(--ink);color:#fff;padding:calc(12px + env(safe-area-inset-top,0px)) 16px 12px;position:sticky;top:0;z-index:30;box-shadow:0 2px 10px rgba(27,42,65,.25);}
+  .topbar .menu-btn{color:#fff;border-color:rgba(255,255,255,.35);}
+  .topbar-inner{max-width:640px;margin:0 auto;display:flex;align-items:center;gap:12px;}
+  .topbar h1{font-family:'Tiro Bangla',serif;font-size:1.2rem;margin:0;font-weight:400;}
+  main{max-width:640px;margin:0 auto;padding:16px;}
+  .card{background:var(--card);border:1px solid var(--paper-line);border-radius:12px;padding:16px;margin-bottom:14px;box-shadow:0 2px 8px rgba(27,42,65,.06);}
+  .card h2{font-family:'Tiro Bangla',serif;font-size:1rem;margin:0 0 12px;border-left:4px solid var(--gold);padding-left:10px;}
+  .acct{display:flex;align-items:center;gap:12px;}
+  .acct .av{width:52px;height:52px;border-radius:50%;background:var(--gold);color:var(--ink);display:flex;align-items:center;justify-content:center;font-weight:700;font-size:1.3rem;overflow:hidden;flex:none;}
+  .acct .av img{width:100%;height:100%;object-fit:cover;}
+  .acct b{display:block;}
+  .acct span{font-size:.8rem;color:var(--ink-soft);word-break:break-all;}
+  .kv{display:flex;justify-content:space-between;gap:10px;padding:8px 0;border-bottom:1px solid #EFE7D0;font-size:.88rem;}
+  .kv:last-child{border-bottom:none;}
+  .kv span:first-child{color:var(--ink-soft);}
+  .btn{
+    width:100%;min-height:48px;margin-top:10px;border-radius:10px;font-family:inherit;font-weight:700;font-size:.95rem;cursor:pointer;
+    border:1.5px solid var(--ink);background:transparent;color:var(--ink);
+  }
+  .btn.primary{background:var(--ink);color:#fff;}
+  .btn.danger{border-color:var(--rust);color:var(--rust);}
+  .hint{font-size:.76rem;color:var(--ink-soft);margin-top:8px;line-height:1.5;}
+</style>
+</head>
+<body>
+<div class="topbar">
+  <div class="topbar-inner">
+    <button type="button" class="menu-btn" id="menuBtn" aria-label="মেনু">☰</button>
+    <h1>⚙️ Settings</h1>
+  </div>
+</div>
+<main>
+  <div class="card">
+    <h2>অ্যাকাউন্ট</h2>
+    <div class="acct" id="acct"></div>
+    <button type="button" class="btn danger" id="logoutBtn" style="display:none;">↪ Logout</button>
+  </div>
+
+  <div class="card">
+    <h2>সিঙ্ক</h2>
+    <div class="kv"><span>মোট এন্ট্রি</span><b id="sTotal">—</b></div>
+    <div class="kv"><span>পেন্ডিং (সিঙ্ক বাকি)</span><b id="sPending">—</b></div>
+    <div class="kv"><span>অবস্থা</span><b id="sNet">—</b></div>
+    <button type="button" class="btn primary" id="syncBtn">↻ এখনই সিঙ্ক করুন</button>
+    <div class="hint" id="syncHint"></div>
+  </div>
+
+  <div class="card">
+    <h2>ডেটা ব্যাকআপ</h2>
+    <button type="button" class="btn" id="csvBtn">⬇ CSV ডাউনলোড</button>
+    <button type="button" class="btn" id="jsonBtn">⬇ JSON ব্যাকআপ</button>
+    <div class="hint">ব্যাকআপে শুধু এই অ্যাকাউন্টের এন্ট্রি থাকে।</div>
+  </div>
+</main>
+
+<script src="./common.js"></script>
+<script>
+const $ = (id) => document.getElementById(id);
+const { bn, esc } = LDK;
+let ALL = [];
+
+function renderAcct(){
+  const u = LDK.getUser();
+  if(u){
+    $('acct').innerHTML = `<div class="av">${u.picture ? `<img src="${esc(u.picture)}" alt="" referrerpolicy="no-referrer">` : esc((u.name || '?').charAt(0).toUpperCase())}</div>
+      <div><b>${esc(u.name)}</b><span>${esc(u.email)}</span></div>`;
+    $('logoutBtn').style.display = '';
+  } else {
+    $('acct').innerHTML = `<div class="av">৳</div><div><b>লগইন বন্ধ আছে</b><span>common.js-এ GOOGLE_CLIENT_ID বসালে Gmail Login চালু হবে</span></div>`;
+  }
+}
+async function load(){
+  ALL = await LDK.getAllEntries();
+  const pend = ALL.filter(e => !e.synced).length;
+  $('sTotal').textContent = bn(ALL.length);
+  $('sPending').textContent = bn(pend);
+  $('sNet').textContent = navigator.onLine ? 'অনলাইন' : 'অফলাইন';
+  const u = LDK.getUser();
+  $('syncHint').textContent = (u && !LDK.isOwner() && !LDK.CFG.SYNC_NON_OWNERS)
+    ? 'এই অ্যাকাউন্টের ডেটা শুধু এই ডিভাইসে সংরক্ষিত (Google Sheet সিঙ্ক শুধু মালিক অ্যাকাউন্টের জন্য চালু)।' : '';
+}
+function download(name, text, type){
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(new Blob([text], {type}));
+  a.download = name; document.body.appendChild(a); a.click();
+  setTimeout(() => { URL.revokeObjectURL(a.href); a.remove(); }, 500);
+}
+const stamp = () => new Date().toISOString().slice(0, 10);
+
+$('logoutBtn').addEventListener('click', () => { if(confirm('Logout করবেন?')) LDK.logout(); });
+$('syncBtn').addEventListener('click', async () => {
+  if(!navigator.onLine){ LDK.toast('ইন্টারনেট নেই'); return; }
+  LDK.toast('সিঙ্ক হচ্ছে…');
+  await LDK.syncAll();
+  const ok = await LDK.pullFromSheet();
+  await load();
+  LDK.toast(ok ? 'সিঙ্ক সম্পন্ন ✓' : 'সিঙ্ক করা যায়নি');
+});
+$('csvBtn').addEventListener('click', () => {
+  const q = (v) => '"' + String(v == null ? '' : v).replace(/"/g, '""') + '"';
+  const head = ['dateTime','category','name','phone','takeAmount','giveAmount','reason','synced'];
+  const lines = [head.join(',')].concat(ALL.map(e => head.map(h => q(e[h])).join(',')));
+  download(`lenden-khata-${stamp()}.csv`, '﻿' + lines.join('\n'), 'text/csv;charset=utf-8');
+});
+$('jsonBtn').addEventListener('click', () => {
+  download(`lenden-khata-${stamp()}.json`, JSON.stringify(ALL, null, 2), 'application/json');
+});
+
+(async function init(){
+  await LDK.boot();
+  LDK.onChange = load;
+  renderAcct();
+  await load();
+  LDK.startAutoSync();
+  if('serviceWorker' in navigator){
+    try{ await navigator.serviceWorker.register('./service-worker.js'); }catch(e){}
+  }
+})();
+</script>
+</body>
+</html>
