@@ -6,6 +6,7 @@
 <meta name="theme-color" content="#1B2A41">
 <title>লেনদেন খাতা</title>
 <link rel="manifest" href="./manifest.json">
+<link rel="stylesheet" href="./common.css">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Tiro+Bangla&family=Hind+Siliguri:wght@400;500;600;700&display=swap" rel="stylesheet">
 <style>
@@ -31,6 +32,7 @@
     padding-bottom:100px;
   }
   header{
+    position:relative;
     padding:28px 20px 18px;
     text-align:center;
     border-bottom:3px double var(--ink);
@@ -193,6 +195,7 @@
 <body>
 
 <header>
+  <button type="button" class="menu-btn" id="menuBtn" aria-label="মেনু" style="position:absolute;left:12px;top:14px;">☰</button>
   <h1>লেনদেন খাতা</h1>
   <p>অফলাইন-ফার্স্ট হিসাব এন্ট্রি — নেট পেলে অটো সিঙ্ক হবে</p>
   <div id="status-bar">
@@ -210,10 +213,6 @@
     <div class="avg-val"><span id="avgVal">৳ ০</span> <small>/ দিন</small></div>
   </div>
 
-  <div class="nav-links">
-    <a class="navbtn pay" href="./people.html?type=payable">💸 Need to Paid</a>
-    <a class="navbtn recv" href="./people.html?type=receivable">📥 Need to Receive</a>
-  </div>
 </header>
 
 <main>
@@ -273,6 +272,7 @@
       </div>
     </div>
     <div id="entryList"></div>
+    <a href="./records.html" style="display:block;text-align:center;margin-top:12px;font-weight:700;font-size:.88rem;color:var(--teal);text-decoration:none;padding:10px;">📁 সব রেকর্ড দেখুন →</a>
   </div>
 </main>
 
@@ -280,10 +280,11 @@
 <button type="button" id="voiceFab" aria-label="ভয়েস এন্ট্রি">🎤</button>
 <div id="toast"></div>
 
+<script src="./common.js"></script>
 <script>
 /* ================== কনফিগ ================== */
 // এখানে আপনার Deploy করা Apps Script Web App URL বসান
-const APPS_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbyZnIeZvuDSMK1JLPseCacLXDv7cpsm4pfjBsElm9SwBecj0oipx8O3aHS1PeA_FQvZ/exec';
+// Apps Script URL ও Google Client ID এখন common.js-এর CFG-তে আছে
 const SENDER_NAME = 'সোহেল রানা';
 // Sheet-এর 'My Inventory' শিটের G2 ঘরের শুরুর ব্যালেন্স (ক্লোজিং ব্যালেন্সে যোগ হয়)
 const OPENING_BALANCE = 680;
@@ -316,80 +317,8 @@ const SMS_TEMPLATES = {
   'Credit Purchase Loan Paid': (name, amt) => `ধন্যবাদ, ${name}।\nআপনাকে জানানো যাচ্ছে যে, ${SENDER_NAME} আপনার কাছ থেকে বাকিতে ক্রয় করা পণ্যের জন্য বকেয়া ${amt} টাকা পরিশোধ করেছেন।\nইনশাআল্লাহ ভবিষ্যতেও আমাদের এই সুন্দর লেনদেন সম্পর্ক বজায় থাকবে।\nআপনার সহযোগিতা ও বিশ্বাসের জন্য আন্তরিক ধন্যবাদ।`
 };
 
-/* ================== IndexedDB ================== */
-let db;
-function openDB(){
-  return new Promise((resolve, reject) => {
-    const req = indexedDB.open('ledgerDB', 1);
-    req.onupgradeneeded = () => {
-      const d = req.result;
-      if(!d.objectStoreNames.contains('entries')){
-        const store = d.createObjectStore('entries', {keyPath:'id', autoIncrement:true});
-        store.createIndex('synced', 'synced');
-      }
-    };
-    req.onsuccess = () => { db = req.result; resolve(db); };
-    req.onerror = () => reject(req.error);
-  });
-}
-function txStore(mode='readonly'){
-  return db.transaction('entries', mode).objectStore('entries');
-}
-function addEntry(entry){
-  return new Promise((res, rej) => {
-    const r = txStore('readwrite').add(entry);
-    r.onsuccess = () => res(r.result);
-    r.onerror = () => rej(r.error);
-  });
-}
-function getAllEntries(){
-  return new Promise((res, rej) => {
-    const r = txStore().getAll();
-    r.onsuccess = () => res(r.result.sort((a, b) => (Date.parse(b.dateTime) || 0) - (Date.parse(a.dateTime) || 0)));
-    r.onerror = () => rej(r.error);
-  });
-}
-function markSynced(id){
-  return new Promise((res, rej) => {
-    const store = txStore('readwrite');
-    const g = store.get(id);
-    g.onsuccess = () => {
-      const val = g.result;
-      if(!val) return res();
-      val.synced = true;
-      const p = store.put(val);
-      p.onsuccess = () => res();
-      p.onerror = () => rej(p.error);
-    };
-    g.onerror = () => rej(g.error);
-  });
-}
-
-// Sheet থেকে আনা তালিকা দিয়ে সিঙ্কড এন্ট্রি বদলে ফেলে (পেন্ডিং এন্ট্রি অক্ষত থাকে)
-function replaceSynced(rows){
-  return new Promise((res, rej) => {
-    const tx = db.transaction('entries', 'readwrite');
-    const store = tx.objectStore('entries');
-    const req = store.getAll();
-    req.onsuccess = () => {
-      req.result.forEach(e => { if(e.synced) store.delete(e.id); });
-      rows.forEach(r => store.add({
-        dateTime: r.dateTime || new Date(0).toISOString(),
-        category: r.category || '',
-        name: r.name || '',
-        phone: r.phone || '',
-        takeAmount: r.takeAmount === '' || r.takeAmount == null ? '' : String(r.takeAmount),
-        giveAmount: r.giveAmount === '' || r.giveAmount == null ? '' : String(r.giveAmount),
-        reason: r.reason || '',
-        synced: true,
-        fromSheet: true
-      }));
-    };
-    tx.oncomplete = () => res();
-    tx.onerror = () => rej(tx.error);
-    tx.onabort = () => rej(tx.error);
-  });
-}
+/* ================== IndexedDB / Sync (common.js থেকে) ================== */
+const { addEntry, getAllEntries, syncAll, pullFromSheet, syncAndPull, makeUid } = LDK;
 
 /* ================== UI Init ================== */
 const $ = (id) => document.getElementById(id);
@@ -419,11 +348,11 @@ $('phone').addEventListener('input', () => {
   const phone = $('phone').value.trim();
   $('phoneHint').textContent = '';
   $('phoneHint').className = 'hint';
-  if(phone.length < 6 || !navigator.onLine || APPS_SCRIPT_URL.includes('PASTE_')) return;
+  if(phone.length < 6 || !LDK.canSync()) return;
   phoneTimer = setTimeout(async () => {
     try{
       $('phoneHint').textContent = 'চেক করা হচ্ছে...';
-      const res = await fetch(`${APPS_SCRIPT_URL}?action=checkPhone&phone=${encodeURIComponent(phone)}`);
+      const res = await fetch(`${LDK.CFG.APPS_SCRIPT_URL}?action=checkPhone&phone=${encodeURIComponent(phone)}${LDK.authQS()}`);
       const data = await res.json();
       if(data.found){
         $('name').value = data.name;
@@ -437,11 +366,6 @@ $('phone').addEventListener('input', () => {
     }
   }, 500);
 });
-
-function makeUid(){
-  if(window.crypto && crypto.randomUUID) return crypto.randomUUID();
-  return 'u' + Date.now() + '-' + Math.random().toString(16).slice(2);
-}
 
 /* ================== Submit ================== */
 $('entryForm').addEventListener('submit', async (e) => {
@@ -487,61 +411,6 @@ function buildSmsLink(cat, name, phone, takeAmount, giveAmount){
   if(!template) return null;
   const msg = template(name, amt);
   return `sms:${phone}?body=${encodeURIComponent(msg)}`;
-}
-
-/* ================== Sync ================== */
-// syncAll ও pull একসাথে না চলার জন্য সিরিয়াল লক
-let lockChain = Promise.resolve();
-function withLock(fn){
-  const p = lockChain.then(fn, fn);
-  lockChain = p.catch(() => {});
-  return p;
-}
-function syncAll(){ return withLock(_syncAll); }
-function pullFromSheet(){ return withLock(_pullFromSheet); }
-async function syncAndPull(){
-  await syncAll();
-  await pullFromSheet();
-}
-
-let lastPull = 0;
-async function _pullFromSheet(){
-  if(!navigator.onLine || APPS_SCRIPT_URL.includes('PASTE_')) return false;
-  try{
-    const res = await fetch(`${APPS_SCRIPT_URL}?action=getEntries`);
-    const data = await res.json();
-    if(!data || !data.success || !Array.isArray(data.entries)) return false;
-    await replaceSynced(data.entries);
-    lastPull = Date.now();
-    await renderEntries();
-    return true;
-  }catch(err){
-    return false;
-  }
-}
-
-async function _syncAll(){
-  const all = await getAllEntries();
-  const pending = all.filter(x => !x.synced);
-  updatePendingPill(pending.length);
-  if(APPS_SCRIPT_URL.includes('PASTE_')) return; // এখনো কনফিগার করা হয়নি
-
-  for(const entry of pending){
-    try{
-      const res = await fetch(APPS_SCRIPT_URL, {
-        method: 'POST',
-        headers: {'Content-Type': 'text/plain;charset=utf-8'}, // preflight এড়াতে
-        body: JSON.stringify({ action: 'submitForm', ...entry, clientId: entry.uid || '' })
-      });
-      const data = await res.json();
-      if(data && data.success){
-        await markSynced(entry.id);
-      }
-    }catch(err){
-      break; // নেট সমস্যা হলে থামিয়ে দাও, পরে আবার চেষ্টা হবে
-    }
-  }
-  await renderEntries();
 }
 
 /* ================== ব্যালেন্স ও ব্যক্তি-তালিকা ================== */
@@ -862,7 +731,7 @@ function updatePendingPill(count){
 }
 window.addEventListener('online', () => { updateNetPill(); syncAndPull(); });
 document.addEventListener('visibilitychange', () => {
-  if(document.visibilityState === 'visible' && navigator.onLine && Date.now() - lastPull > 60000) syncAndPull();
+  if(document.visibilityState === 'visible' && navigator.onLine && Date.now() - LDK.getLastPull() > 60000) syncAndPull();
 });
 $('refreshBtn').addEventListener('click', async () => {
   if(!navigator.onLine){ toast('ইন্টারনেট নেই'); return; }
@@ -884,7 +753,9 @@ function toast(msg){
 
 /* ================== Init ================== */
 (async function init(){
-  await openDB();
+  await LDK.boot();
+  LDK.onChange = renderEntries;
+  LDK.onPending = updatePendingPill;
   updateNetPill();
   await renderEntries();
   if(navigator.onLine) syncAndPull();
